@@ -21,7 +21,11 @@ namespace MicroClimat.Forms
 
         public String Title { set { _strTitle = value; } }
         public String YAxis { set { _strYAxis = value; } }
-        public String ParName { set { _strParName = value; } }
+        public String ParName
+        {
+            set { _strParName = value; }
+            get { return _strParName; }
+        }
 
         public ChartFormEx()
         {
@@ -156,8 +160,8 @@ namespace MicroClimat.Forms
                     listDry.Add(new XDate(_lstDates[i]), _lstPar1[i]);
                     listWet.Add(new XDate(_lstDates[i]), _lstPar2[i]);
                 }
-//                LineItem curveDry = pane.AddCurve("Сух.", listDry, Color.Blue, SymbolType.Square);
-//                LineItem curveWet = pane.AddCurve("Смоч.", listWet, Color.Red, SymbolType.Square);
+                LineItem curveDry = pane.AddCurve("Сух.", listDry, Color.Blue, SymbolType.Square);
+                LineItem curveWet = pane.AddCurve("Смоч.", listWet, Color.Red, SymbolType.Square);
             }
             else
             {
@@ -166,7 +170,7 @@ namespace MicroClimat.Forms
                 {
                     listPres.Add(new XDate(_lstDates[i]), _lstPar1[i]);
                 }
-//                LineItem curvePress = pane.AddCurve(m_strParName, listPres, Color.Green, SymbolType.Square);
+                LineItem curvePress = pane.AddCurve(ParName, listPres, Color.Green, SymbolType.Square);
             }
             pane.XAxis.Type = AxisType.DateAsOrdinal;
             pane.XAxis.Title.Text = "Дата/время наблюдения";

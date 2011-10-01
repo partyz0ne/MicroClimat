@@ -11,7 +11,6 @@
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/f:app.manifest" caret="1177" fromTop="18" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/f:app.config" caret="1022" fromTop="19" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Properties/f:AssemblyInfo.cs" caret="1443" fromTop="33" />
-      <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="1710" fromTop="11" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:AddMemberForm.cs" caret="263" fromTop="9" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Classes/f:CProject.cs" caret="0" fromTop="0" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Classes/f:CTables.cs" caret="1067" fromTop="5" />
@@ -28,9 +27,9 @@
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/f:Program.cs" caret="305" fromTop="13" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Classes/f:CLogger.cs" caret="832" fromTop="20" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.Designer.cs" caret="24368" fromTop="19" />
+      <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="352" fromTop="14" />
     </RecentFiles>
     <RecentEdits>
-      <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="2125" fromTop="11" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="2401" fromTop="18" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="2401" fromTop="17" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="1925" fromTop="5" />
@@ -60,6 +59,7 @@
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.Designer.cs" caret="23330" fromTop="13" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.Designer.cs" caret="23848" fromTop="16" />
       <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.Designer.cs" caret="24368" fromTop="19" />
+      <File id="16AD4509-0BE7-4637-8A58-3A6F9B570B9A/d:Forms/f:MainForm.cs" caret="352" fromTop="14" />
     </RecentEdits>
   </RecentFiles>
   <CompletionStatisticsManager>
