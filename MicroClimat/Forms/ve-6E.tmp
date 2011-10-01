@@ -1,0 +1,660 @@
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using System.IO;
+using MicroClimat.Classes;
+using MicroClimat.Properties;
+
+namespace MicroClimat
+{
+    /// <summary>
+    /// Класс главного окна программы.
+    /// </summary>
+    public partial class MainForm : Form
+    {
+        Settings m_Settings = Settings.Default;
+        CProject m_Project = null;
+        bool m_bPrOpened = false;
+        bool m_bPrChanged = false;
+        ClimatData m_stCurData;
+        String m_strProjectName = String.Empty;
+        public bool[] m_bColShow = new bool[8];
+
+        /// <summary>
+        /// Текущий проект.
+        /// </summary>
+        public CProject Project
+        {
+            get { return m_Project; }
+            set { m_Project = value; }
+        }
+
+        /// <summary>
+        /// Текущие данные наблюдения.
+        /// </summary>
+        public ClimatData CurData
+        {
+            get { return m_stCurData; }
+            set { m_stCurData = value; }
+        }
+
+        /// <summary>
+        /// Конструктор главного окна.
+        /// </summary>
+        /// <param name="strFile">Путь к файлу проекта.</param>
+        public MainForm(String strFile)
+        {
+            InitializeConfig();
+            InitializeComponent();
+            m_strProjectName = strFile;
+            if (m_strProjectName != String.Empty)
+                OpenProject(m_strProjectName);
+        }
+
+        /// <summary>
+        /// Конструктор главного окна.
+        /// </summary>
+        public MainForm()
+        {
+            InitializeComponent();
+            InitializeConfig();
+            m_strProjectName = m_Settings.LastProject;
+            if (m_strProjectName != String.Empty)
+                OpenProject(m_strProjectName);
+        }
+
+        /// <summary>
+        /// Инициализация настроект программы и соответствующих элементов управления.
+        /// </summary>
+        public void InitializeConfig()
+        {
+            m_bColShow[0] = m_Settings.show_date;
+            m_bColShow[1] = m_Settings.show_tempdry;
+            m_bColShow[2] = m_Settings.show_tempwet;
+            m_bColShow[3] = m_Settings.show_pres;
+            m_bColShow[4] = m_Settings.show_wind;
+            m_bColShow[5] = m_Settings.show_hum;
+            m_bColShow[6] = m_Settings.show_sat;
+            m_bColShow[7] = m_Settings.show_duty;
+
+            ToolStripItemCollection itemCol = showViewMenuItem.DropDownItems;
+            ToolStripItemCollection contCol = HeaderContextMenu.Items;
+            DataGridViewColumnCollection colCol = WorkSpace.Columns;
+            int i = 0;
+            foreach (DataGridViewColumn col in colCol)
+            {
+                ((ToolStripMenuItem)itemCol[i]).Checked = m_bColShow[i];
+                ((ToolStripMenuItem)contCol[i]).Checked = m_bColShow[i];
+                col.Visible = m_bColShow[i];
+                i++;
+            }
+            ChangeButtonsStyle(false);
+        }
+
+        /// <summary>
+        /// Открывает проект с указанным именем.
+        /// </summary>
+        /// <param name="strProjectName">Путь к файлу.</param>
+        /// <returns>Возвращает true в случае удачного открытия файла и false - в случае неудачного.</returns>
+        private bool OpenProject(String strProjectName)
+        {
+            bool bRes = false;
+            m_Project = new CProject(strProjectName);
+            if (m_Project.Open())
+            {
+                for (int i = 0; i < m_Project.Length; i++)
+                {
+                    ClimatData tmpStData = m_Project[i];
+                    String strWindDirect = Utils.GetWindDirect(tmpStData.WindDirect);
+                    WorkSpace.Rows.Add(tmpStData.Date.ToString(),
+                        tmpStData.TempDry, tmpStData.TempWet,
+                        tmpStData.Pressure, strWindDirect + ", " + tmpStData.WindSpeed,
+                        tmpStData.Humidity, tmpStData.Saturation, tmpStData.Duty);
+                }
+
+                Text += (" - " + Path.GetFileName(m_Project.Name));
+                lblManager.Text = m_Project.Manager;
+                openStatusChange(true);
+                RefreshProjectInfo();
+                m_Settings.LastProject = m_Project.Name;
+                bRes = true;
+            }
+            else
+                m_Project = null;
+            return bRes;
+        }
+
+        /// <summary>
+        /// Закрывает открытый проект.
+        /// </summary>
+        private bool CloseProject()
+        {
+            if (m_bPrOpened)
+            {
+                if (m_bPrChanged)
+                {
+                    switch (MessageBox.Show("Сохранить текущий проект перед закрытием?", "Внимание", MessageBoxButtons.YesNoCancel))
+                    {
+                        case DialogResult.Cancel:
+                            return false;
+                        case DialogResult.No:
+                            break;
+                        case DialogResult.Yes:
+                        default:
+                            m_Project.Save();
+                            saveStatusChange(false);
+                            break;
+                    }
+                }
+                m_Project.Close();
+                m_Project = null;
+                openStatusChange(false);
+                Text = Utils.GetPropValue("PROGRAM_NAME");
+                lblManager.Text = String.Empty;
+                WorkSpace.Rows.Clear();
+            }
+            return true;
+        }
+
+        private void OnFileNewProject(object sender, EventArgs e)
+        {
+            CreateProjectWizard cpw = new CreateProjectWizard(this);
+            if (cpw.ShowDialog() == DialogResult.OK)
+            {
+                CloseProject();
+                openStatusChange(true);
+                Text += (" - " + Path.GetFileName(m_Project.Name));
+                lblManager.Text = m_Project.Manager;
+                RefreshProjectInfo();
+            }
+        }
+
+        private void OnFileOpenProject(object sender, EventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = Utils.GetPropValue("PROJECT_FILE_FILTER");
+            if (ofd.ShowDialog() == DialogResult.OK)
+            {
+                CloseProject();
+                if (!OpenProject(ofd.FileName))
+                    MessageBox.Show("Произошла ошибка открытия проекта " + ofd.FileName, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void OnFileSaveProject(object sender, EventArgs e)
+        {
+            m_Project.Save();
+            saveStatusChange(false);
+        }
+
+        private void OnFileSaveAsProject(object sender, EventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.Filter = Utils.GetPropValue("PROJECT_FILE_FILTER");
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                if (m_bPrChanged)
+                {
+                    switch (MessageBox.Show("Сохранить текущий проект перед закрытием?", "Внимание", MessageBoxButtons.YesNoCancel))
+                    {
+                        case DialogResult.Cancel:
+                            return;
+                        case DialogResult.No:
+                            break;
+                        case DialogResult.Yes:
+                        default:
+                            m_Project.Save();
+                            break;
+                    }
+                }
+                m_Project.SaveAs(sfd.FileName);
+                Text = Utils.GetPropValue("PROGRAM_NAME");
+                Text += (" - " + Path.GetFileName(m_Project.Name));
+                openStatusChange(true);
+            }
+        }
+
+        private void OnDataAdd(object sender, EventArgs e)
+        {
+            AddItemForm addForm = new AddItemForm(this, false);
+            if (addForm.ShowDialog() == DialogResult.OK)
+            {
+                m_Project.AddData(m_stCurData);
+                String strWindDirect = Utils.GetWindDirect(m_stCurData.WindDirect);
+                WorkSpace.Rows.Add(m_stCurData.Date.ToString(),
+                    m_stCurData.TempDry, m_stCurData.TempWet,
+                    Math.Round(m_stCurData.Pressure, 1),
+                    strWindDirect + ", " + m_stCurData.WindSpeed,
+                    m_stCurData.Humidity, m_stCurData.Saturation,
+                    m_stCurData.Duty);
+                saveStatusChange(true);
+                RefreshProjectInfo();
+            }
+        }
+
+        private void OnFileCloseProject(object sender, EventArgs e)
+        {
+            CloseProject();
+            RefreshProjectInfo();
+        }
+
+        /// <summary>
+        /// Изменяет состояние элементов управления на форме в зависимости от статуса проекта (открыт/закрыт).
+        /// </summary>
+        /// <param name="bStatus">Статус проекта.</param>
+        private void openStatusChange(bool bStatus)
+        {
+            m_bPrOpened = bStatus;
+            saveAsFileMenuItem.Enabled = bStatus;
+            closeFileMenuItem.Enabled = bStatus;
+            closeToolbarButton.Enabled = bStatus;
+            DataMenuItem.Visible = bStatus;
+            addDataToolbarButton.Enabled = bStatus;
+            selectAllViewMenuItem.Enabled = bStatus;
+        }
+
+        /// <summary>
+        /// Изменяет состояние элементов управления на форме в зависимости от статуса проекта (изменен/не изменен).
+        /// </summary>
+        /// <param name="bStatus">Статус проекта</param>
+        private void saveStatusChange(bool bStatus)
+        {
+            m_bPrChanged = bStatus;
+            saveFileMenuItem.Enabled = bStatus;
+            saveToolbarButton.Enabled = bStatus;
+        }
+
+        private void OnFileExit(object sender, EventArgs e)
+        {
+            CloseProject();
+            Application.Exit();
+        }
+
+        private void OnDataDelete(object sender, EventArgs e)
+        {
+            DataGridViewSelectedRowCollection indexes = WorkSpace.SelectedRows;
+            if (MessageBox.Show("Удалить выделенные элементы?", "Внимание", MessageBoxButtons.YesNo) == DialogResult.Yes)
+            {
+                for (int i = 0; i < indexes.Count; i++)
+                {
+                    m_Project.DeleteData(indexes[i].Index + 1);
+                    WorkSpace.Rows.RemoveAt(indexes[i].Index);
+                }
+                saveStatusChange(true);
+            }
+        }
+
+        private void DataMenuItem_Click(object sender, EventArgs e)
+        {
+            deleteDataMenuItem.Enabled = false;
+            editDataMenuItem.Enabled = false;
+            int nCount = WorkSpace.SelectedRows.Count;
+            if (nCount > 0)
+            {
+                deleteDataMenuItem.Enabled = true;
+                if (nCount == 1)
+                    editDataMenuItem.Enabled = true;
+            }
+        }
+
+        private void OnMainFormClosing(object sender, FormClosingEventArgs e)
+        {
+            m_Settings.Save();
+            if (!CloseProject())
+                e.Cancel = true;
+        }
+
+        private void OnDataEdit(object sender, EventArgs e)
+        {
+            EditItem();
+        }
+
+        /// <summary>
+        /// Редактировать данные наблюдений.
+        /// </summary>
+        private void EditItem()
+        {
+            int nIndex = WorkSpace.SelectedRows[0].Index;
+            m_stCurData = m_Project[nIndex];
+            AddItemForm formAdd = new AddItemForm(this, true);
+            if (formAdd.ShowDialog() == DialogResult.OK)
+            {
+                m_Project.EditData(m_stCurData);
+                String strWindDirect = Utils.GetWindDirect(m_stCurData.WindDirect);
+                saveStatusChange(true);
+                WorkSpace.Rows.RemoveAt(nIndex);
+                WorkSpace.Rows.Insert(nIndex, m_stCurData.Date.ToString(),
+                    m_stCurData.TempDry, m_stCurData.TempWet,
+                    Math.Round(m_stCurData.Pressure, 1),
+                    strWindDirect + ", " + m_stCurData.WindSpeed,
+                    m_stCurData.Humidity, m_stCurData.Saturation,
+                    m_stCurData.Duty);
+            }
+        }
+
+        /// <summary>
+        /// Обновляет рабочую область программы.
+        /// </summary>
+        private void RefreshWorkspace()
+        {
+            for (int i = 0; i < WorkSpace.ColumnCount; i++)
+                WorkSpace.Columns[i].Visible = m_bColShow[i];
+            WorkSpace.Refresh();
+        }
+
+        private void ChangeCheckedItems(int nPos)
+        {
+            switch (nPos)
+            {
+                case 0:
+                    m_Settings.show_date = m_bColShow[nPos];
+                    contextDate.Checked = m_bColShow[nPos];
+                    break;
+                case 1:
+                    m_Settings.show_tempdry = m_bColShow[nPos];
+                    contextTempDry.Checked = m_bColShow[nPos];
+                    break;
+                case 2:
+                    m_Settings.show_tempwet = m_bColShow[nPos];
+                    contextTempWet.Checked = m_bColShow[nPos];
+                    break;
+                case 3:
+                    m_Settings.show_pres = m_bColShow[nPos];
+                    contextPressure.Checked = m_bColShow[nPos];
+                    break;
+                case 4:
+                    m_Settings.show_wind = m_bColShow[nPos];
+                    contextWind.Checked = m_bColShow[nPos];
+                    break;
+                case 5:
+                    m_Settings.show_hum = m_bColShow[nPos];
+                    contextHumidity.Checked = m_bColShow[nPos];
+                    break;
+                case 6:
+                    m_Settings.show_sat = m_bColShow[nPos];
+                    contextSaturation.Checked = m_bColShow[nPos];
+                    break;
+                case 7:
+                    m_Settings.show_duty = m_bColShow[nPos];
+                    contextOnDuty.Checked = m_bColShow[nPos];
+                    break;
+                default:
+                    break;
+            }
+            m_Settings.Save();
+            RefreshWorkspace();
+        }
+
+        private void OnViewShowItems(object sender, EventArgs e)
+        {
+            ToolStripMenuItem miCur = (ToolStripMenuItem)sender;
+            int nPos = 0;
+            ToolStrip Parent = miCur.GetCurrentParent();
+            if (Parent.Name == "HeaderContextMenu")
+            {
+                nPos = HeaderContextMenu.Items.IndexOf(miCur);
+            }
+            else
+            {
+                nPos = showViewMenuItem.DropDownItems.IndexOf(miCur);
+            }
+            ToolStripMenuItem newCur = (ToolStripMenuItem)showViewMenuItem.DropDownItems[nPos];
+            miCur.Checked = !miCur.Checked;
+            m_bColShow[nPos] = miCur.Checked;
+            ChangeCheckedItems(nPos);
+        }
+
+        //private void OnShowContextClick(object sender, EventArgs e)
+        //{
+        //    ToolStripMenuItem miCur = (ToolStripMenuItem)sender;
+        //    int nPos = HeaderContextMenu.Items.IndexOf(miCur);
+        //    miCur.Checked = !miCur.Checked;
+        //    m_bColShow[nPos] = miCur.Checked;
+        //    ChangeCheckedItems(nPos);
+        //}
+
+        /// <summary>
+        /// Обновить или очистить информацию по проекту.
+        /// </summary>
+        private void RefreshProjectInfo()
+        {
+            if (m_bPrOpened)
+            {
+                int nCnt = m_Project.Length;
+                txtInfoItemsCount.Text = nCnt.ToString();
+                if (nCnt > 0)
+                {
+                    txtInfoDateFirst.Text = m_Project[0].Date.ToString();
+                    txtInfoDateLast.Text = m_Project[nCnt - 1].Date.ToString();
+                }
+            }
+            else
+            {
+                txtInfoItemsCount.Clear();
+                txtInfoDateFirst.Clear();
+                txtInfoDateLast.Clear();
+            }
+        }
+
+        private void WorkSpaceSelectionChanged(object sender, EventArgs e)
+        {
+            switch (WorkSpace.SelectedRows.Count)
+            {
+                case 0:
+                    editDataToolbarButton.Enabled = false;
+                    deleteDataToolbarButton.Enabled = false;
+                    btnShowChart.Enabled = false;
+                    break;
+                case 1:
+                    editDataToolbarButton.Enabled = true;
+                    deleteDataToolbarButton.Enabled = true;
+                    btnShowChart.Enabled = false;
+                    break;
+                default:
+                    editDataToolbarButton.Enabled = false;
+                    deleteDataToolbarButton.Enabled = true;
+                    btnShowChart.Enabled = true;
+                    if (m_bColShow[1] || m_bColShow[2])
+                        btnShowChart.Enabled = true;
+                    else
+                        btnShowChart.Enabled = false;
+                    break;
+            }
+        }
+
+        private void OnViewSelectAll(object sender, EventArgs e)
+        {
+            WorkSpace.SelectAll();
+        }
+
+        private void OnHelpAbout(object sender, EventArgs e)
+        {
+            AboutForm formAbout = new AboutForm();
+            formAbout.ShowDialog();
+        }
+
+        private void toAll_MouseEnter(object sender, EventArgs e)
+        {
+            try
+            {
+                statusBarText.Text = (String)((ToolStripMenuItem)sender).Text;
+            }
+            catch (Exception ex1)
+            {
+                try
+                {
+                    statusBarText.Text = (String)((ToolStripButton)sender).Text;
+                }
+                catch (Exception ex2)
+                { }
+            }
+        }
+
+        private void toAll_MouseLeave(object sender, EventArgs e)
+        {
+            statusBarText.Text = String.Empty;
+        }
+
+        private void WorkSpaceKeyPressed(object sender, KeyEventArgs e)
+        {
+            if (m_bPrOpened && WorkSpace.SelectedRows.Count == 1)
+                if (e.KeyData == Keys.Enter)
+                    EditItem();
+        }
+
+        private void OnDataProjectProps(object sender, EventArgs e)
+        {
+            ProjectPropertiesForm formMembers = new ProjectPropertiesForm(this);
+            if (formMembers.ShowDialog() == DialogResult.OK)
+                Project.Save();
+        }
+
+        private void WorkSpaceDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+                EditItem();
+        }
+
+        private void textsViewMenuItem_Click(object sender, EventArgs e)
+        {
+            ChangeButtonsStyle(true);
+        }
+
+        /// <summary>
+        /// Изменить стиль отображения кнопок панели инструментов.
+        /// </summary>
+        /// <param name="bChange"></param>
+        private void ChangeButtonsStyle(bool bChange)
+        {
+            if (bChange)
+                m_Settings.show_texts = !m_Settings.show_texts;
+            for (int i = 0; i < ToolBar.Items.Count; i++)
+            {
+                try
+                {
+                    ToolStripButton btn = (ToolStripButton)ToolBar.Items[i];
+                    btn.DisplayStyle = m_Settings.show_texts ? ToolStripItemDisplayStyle.ImageAndText : ToolStripItemDisplayStyle.Image;
+                }
+                catch (Exception ex)
+                { }
+            }
+            textsViewMenuItem.Checked = m_Settings.show_texts;
+            m_Settings.Save();
+        }
+
+        private void WorkSpaceColumnHeaderClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+                HeaderContextMenu.Show(Control.MousePosition);
+        }
+
+        private void WorkSpaceRightClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            {
+                DataGridViewSelectedRowCollection rows = WorkSpace.SelectedRows;
+                int nCnt = rows.Count;
+                if (nCnt == 1)
+                {
+                    rows[0].Selected = false;
+                    contextEditItem.Visible = true;
+                    contextDeleteItem.Visible = true;
+                    contextShowChart.Visible = false;
+                }
+                else
+                {
+                    bool bUncheck = true;
+                    for (int i = 0; i < nCnt; i++)
+                        if (rows[i].Index == e.RowIndex)
+                            bUncheck = false;
+                    if (bUncheck)
+                    {
+                        for (int i = 0; i < nCnt; i++)
+                            if (rows[i].Index != e.RowIndex)
+                                rows[i].Selected = false;
+                        contextEditItem.Visible = true;
+                        contextDeleteItem.Visible = true;
+                        contextShowChart.Visible = false;
+                    }
+                    else
+                    {
+                        contextEditItem.Visible = false;
+                        contextDeleteItem.Visible = true;
+                        contextShowChart.Visible = true;
+                    }
+                }
+                WorkSpace.Rows[e.RowIndex].Selected = true;
+                if (e.Button == MouseButtons.Right)
+                    ContentContextMenu.Show(Control.MousePosition);
+            }
+        }
+
+        private void OnShowChartClick(object sender, EventArgs e)
+        {
+            DataGridViewSelectedRowCollection rows = WorkSpace.SelectedRows;
+            List<DateTime> dtDates = new List<DateTime>();
+            ChartFormEx chfEx = null;
+            if (((ToolStripMenuItem)sender).Name == "tempChartContextMenuItem")
+            {
+                List<double> dblTempDry = new List<double>();
+                List<double> dblTempWet = new List<double>();
+                for (int i = 0; i < rows.Count; i++)
+                {
+                    if (m_bColShow[1])
+                        dblTempDry.Add(double.Parse(rows[i].Cells["colTempDry"].Value.ToString()));
+                    if (m_bColShow[2])
+                        dblTempWet.Add(double.Parse(rows[i].Cells["colTempWet"].Value.ToString()));
+                    dtDates.Add(DateTime.Parse(rows[i].Cells["colDate"].Value.ToString()));
+                }
+                chfEx = new ChartFormEx(dblTempDry, dblTempWet, dtDates);
+                chfEx.Title = "График изменения температуры.";
+                chfEx.YAxis = "Температура (°C)";
+            }
+            else
+            {
+                if (((ToolStripMenuItem)sender).Name == "presChartContextMenuItem")
+                {
+                    List<double> dblPressure = new List<double>();
+                    for (int i = 0; i < rows.Count; i++)
+                    {
+                        if (m_bColShow[3])
+                            dblPressure.Add(double.Parse(rows[i].Cells["colPressure"].Value.ToString()));
+                        dtDates.Add(DateTime.Parse(rows[i].Cells["colDate"].Value.ToString()));
+                    }
+                    chfEx = new ChartFormEx(dblPressure, dtDates);
+                    chfEx.Title = "График изменения давления.";
+                    chfEx.ParName = "Давление.";
+                    chfEx.YAxis = "Давление (мм рт.ст.)";
+                }
+                else
+                {
+                    List<double> dblHumidity = new List<double>();
+                    for (int i = 0; i < rows.Count; i++)
+                    {
+                        if (m_bColShow[5])
+                            dblHumidity.Add(double.Parse(rows[i].Cells["colHumidity"].Value.ToString()));
+                        dtDates.Add(DateTime.Parse(rows[i].Cells["colDate"].Value.ToString()));
+                    }
+                    chfEx = new ChartFormEx(dblHumidity, dtDates);
+                    chfEx.Title = "График изменения влажности.";
+                    chfEx.ParName = "Влажность.";
+                    chfEx.YAxis = "Влажность (%)";
+                }
+            }
+            chfEx.MakeChart();
+            chfEx.ShowDialog();
+        }
+
+        private void btnShowChart_Click_1(object sender, EventArgs e)
+        {
+            tempChartContextMenuItem.Enabled = (m_bColShow[1] && m_bColShow[2]);
+            presChartContextMenuItem.Enabled = m_bColShow[3];
+            humChartContextMenuItem.Enabled = m_bColShow[5];
+        }
+    }
+}

@@ -1,0 +1,444 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Xml;
+using System.Xml.Serialization;
+
+namespace MicroClimat.Classes
+{
+    /// <summary>
+    /// Структура данных проекта.
+    /// </summary>
+    public struct ClimatData
+    {
+        int m_nIndex;
+        DateTime m_dtDate;
+        double m_dblTempDry;
+        double m_dblTempWet;
+        bool m_bIce;
+        double m_dblPressure;
+        double m_dblHumidity;
+        double m_dblWindSpeed;
+        int m_nWindDirect;
+        double m_dblSaturation;
+        String m_strOnDuty;
+
+        /// <summary>
+        /// Индекс записи в списке записей проекта.
+        /// </summary>
+        public int Index   { get { return m_nIndex; } set { m_nIndex = value; } }
+        /// <summary>
+        /// Дата и время сделанного наблюдения.
+        /// </summary>
+        public DateTime Date    { get { return m_dtDate; } set { m_dtDate = value; } }
+        /// <summary>
+        /// Температура сухого термометра психрометра.
+        /// </summary>
+        public double TempDry { get { return m_dblTempDry; } set { m_dblTempDry = value; } }
+        /// <summary>
+        /// Температура смоченного термометра психрометра.
+        /// </summary>
+        public double TempWet { get { return m_dblTempWet; } set { m_dblTempWet = value; } }
+        /// <summary>
+        /// Лед на смоченном термометре
+        /// </summary>
+        public bool Ice { get { return m_bIce; } set { m_bIce = value; } }
+        /// <summary>
+        /// Атмосферное давление.
+        /// </summary>
+        public double Pressure { get { return m_dblPressure; } set { m_dblPressure = value; } }
+        /// <summary>
+        /// Относительная влажность воздуха.
+        /// </summary>
+        public double Humidity { get { return m_dblHumidity; } set { m_dblHumidity = value; } }
+        /// <summary>
+        /// Недостаточность насыщения воздуха влагой.
+        /// </summary>
+        public double Saturation { get { return m_dblSaturation; } set { m_dblSaturation = value; } }
+        /// <summary>
+        /// Скорость ветра.
+        /// </summary>
+        public double WindSpeed { get { return m_dblWindSpeed; } set { m_dblWindSpeed = value; } }
+        /// <summary>
+        /// Направление ветра.
+        /// </summary>
+        public int WindDirect { get { return m_nWindDirect; } set { m_nWindDirect = value; } }
+        /// <summary>
+        /// Дежурные, сделавшие наблюдение.
+        /// </summary>
+        public String Duty { get { return m_strOnDuty; } set { m_strOnDuty = value; } }
+    }
+
+    /// <summary>
+    /// Класс проекта.
+    /// </summary>
+    public class CProject
+    {
+        String m_strName = String.Empty;
+        String m_strManager = String.Empty;
+        String m_strPlace = String.Empty;
+        List<String> m_lstMembers = new List<String>();
+        List<ClimatData> m_stData = new List<ClimatData>();
+        List<bool> m_lstGadgets = new List<bool>();
+        int m_Ver = 2;
+
+        /// <summary>
+        /// Количество записей в проекте.
+        /// </summary>
+        public int Length   { get { return m_stData.Count; } }
+
+        /// <summary>
+        /// Возвращает n-ый элемент списка записей проекта.
+        /// </summary>
+        /// <param name="i">Индекс данных.</param>
+        /// <returns>Структура данных проекта.</returns>
+        public ClimatData this[int i]
+        {
+            get { if (i >= 0 && i < Length) return m_stData[i]; else return m_stData[0]; }
+        }
+
+        /// <summary>
+        /// Конструктор класса проекта.
+        /// </summary>
+        /// <param name="strFile">Путь к файлу проекта.</param>
+        public CProject(String strFile)
+        {
+            m_strName = strFile;
+        }
+
+        /// <summary>
+        /// Открытие проекта.
+        /// </summary>
+        /// <returns>True в случае удачного открытия и False - в случае неудачного.</returns>
+        public bool Open()
+        {
+            using (XmlTextReader reader = new XmlTextReader(m_strName))
+            {
+                try
+                {
+                    while (reader.Read())
+                    {
+                        if (reader.NodeType == XmlNodeType.Element)
+                        {
+                            switch (reader.Name)
+                            {
+                                case "MCP_Project":
+                                    int nVer = 0;
+                                    String strVersion = reader.GetAttribute("Version");
+                                    if (!int.TryParse(strVersion, out nVer) || nVer < m_Ver)
+                                        throw new Exception("Project version is smaller than actual.");
+                                    break;
+                                case "MCP_Item":
+                                    ClimatData tmpData = new ClimatData();
+                                    while (reader.Read())
+                                    {
+                                        if (reader.Name == "MCP_Item")
+                                            break;
+                                        if (reader.NodeType == XmlNodeType.Element)
+                                        {
+                                            switch (reader.Name)
+                                            {
+                                                case "Item_Index":
+                                                    tmpData.Index = int.Parse(reader.ReadString()); continue;
+                                                case "Item_Date":
+                                                    tmpData.Date = DateTime.Parse(reader.ReadString()); continue;
+                                                case "Item_TempDry":
+                                                    tmpData.TempDry = double.Parse(reader.ReadString()); continue;
+                                                case "Item_TempWet":
+                                                    tmpData.TempWet = double.Parse(reader.ReadString()); continue;
+                                                case "Item_Ice":
+                                                    tmpData.Ice = bool.Parse(reader.ReadString()); continue;
+                                                case "Item_Pressure":
+                                                    tmpData.Pressure = double.Parse(reader.ReadString()); continue;
+                                                case "Item_Humidity":
+                                                    tmpData.Humidity = double.Parse(reader.ReadString()); continue;
+                                                case "Item_WindSpeed":
+                                                    tmpData.WindSpeed = double.Parse(reader.ReadString()); continue;
+                                                case "Item_WindDirect":
+                                                    tmpData.WindDirect = int.Parse(reader.ReadString()); continue;
+                                                case "Item_Saturation":
+                                                    tmpData.Saturation = double.Parse(reader.ReadString()); continue;
+                                                case "Item_OnDuty":
+                                                    tmpData.Duty = reader.ReadString(); continue;
+                                                default:
+                                                    break;
+                                            }
+                                        }
+                                    }
+                                    m_stData.Add(tmpData);
+                                    break;
+                                case "MCP_Manager":
+                                    m_strManager = reader.ReadString();
+                                    break;
+                                case "MCP_Place":
+                                    m_strPlace = reader.ReadString();
+                                    break;
+                                case "MCP_Members":
+                                    while (reader.Read())
+                                    {
+                                        if (reader.Name == "MCP_Members")
+                                            break;
+                                        if (reader.NodeType == XmlNodeType.Element)
+                                        {
+                                            if (reader.Name == "MCP_Member")
+                                            {
+                                                m_lstMembers.Add(reader.ReadString()); continue;
+                                            }
+                                        }
+                                    }
+                                    break;
+                                case "MCP_Gadgets":
+                                    while (reader.Read())
+                                    {
+                                        if (reader.Name == "MCP_Gadgets")
+                                            break;
+                                        if (reader.NodeType == XmlNodeType.Element)
+                                        {
+                                            if (reader.Name == "MCP_Gadget")
+                                            {
+                                                m_lstGadgets.Add(bool.Parse(reader.ReadString())); continue;
+                                            }
+                                        }
+                                    }
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                    }
+                }
+                catch (Exception e)
+                {
+                    reader.Close();
+                    return false;
+                }
+                reader.Close();
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Закрытие проекта.
+        /// </summary>
+        public void Close()
+        {
+            m_strName = string.Empty;
+        }
+
+        private void SortList()
+        {
+            for (int i = 0; i < Length; ++i)
+            {
+                for (int j = Length - 1; j > i; --j)
+                {
+                    if (m_stData[j - 1].Date > m_stData[j].Date)
+                    {
+                        ClimatData stTemp = m_stData[j - 1];
+                        m_stData[j - 1] = m_stData[j];
+                        m_stData[j] = stTemp;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Сохранение проекта.
+        /// </summary>
+        public void Save()
+        {
+            SortList();
+            using (XmlTextWriter writer = new XmlTextWriter(m_strName, System.Text.Encoding.Unicode))
+            {
+                writer.WriteStartDocument();
+                writer.WriteStartElement("MCP_Project");
+                writer.WriteAttributeString("Version", m_Ver.ToString());
+                for (int i = 0; i < Length; i++)
+                {
+                    ClimatData tmpData = m_stData[i];
+                    XmlSerializer ser = new XmlSerializer(typeof(ClimatData));
+                    ser.Serialize(writer, tmpData);
+                    //writer.WriteStartElement("MCP_Item");
+                    //writer.WriteStartElement("Item_Index"); writer.WriteString(tmpData.Index.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_Date"); writer.WriteString(tmpData.Date.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_TempDry"); writer.WriteString(tmpData.TempDry.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_TempWet"); writer.WriteString(tmpData.TempWet.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_Ice"); writer.WriteString(tmpData.Ice.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_Pressure"); writer.WriteString(tmpData.Pressure.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_Humidity"); writer.WriteString(tmpData.Humidity.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_WindSpeed"); writer.WriteString(tmpData.WindSpeed.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_WindDirect"); writer.WriteString(tmpData.WindDirect.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_Saturation"); writer.WriteString(tmpData.Saturation.ToString()); writer.WriteEndElement();
+                    //writer.WriteStartElement("Item_OnDuty"); writer.WriteString(tmpData.Duty); writer.WriteEndElement();
+                    //writer.WriteEndElement();
+                }
+                writer.WriteStartElement("MCP_Manager"); writer.WriteString(m_strManager); writer.WriteEndElement();
+                writer.WriteStartElement("MCP_Members");
+                for (int j = 0; j < m_lstMembers.Count; j++)
+                {
+                    writer.WriteStartElement("MCP_Member"); writer.WriteString(m_lstMembers[j]); writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+                writer.WriteStartElement("MCP_Gadgets");
+                for (int j = 0; j < m_lstGadgets.Count; j++)
+                {
+                    writer.WriteStartElement("MCP_Gadget"); writer.WriteString(m_lstGadgets[j].ToString()); writer.WriteEndElement();
+                }
+                writer.WriteEndElement();
+                writer.WriteEndElement();
+                writer.WriteEndDocument();
+                writer.Close();
+            }
+        }
+
+        /// <summary>
+        /// Сохранение копии проекта.
+        /// </summary>
+        /// <param name="strNewFile">Путь к файлу проекта.</param>
+        public void SaveAs(String strNewFile)
+        {
+            Close();
+            m_strName = strNewFile;
+            Save();
+        }
+
+        /// <summary>
+        /// Добавление данных в список данных проекта.
+        /// </summary>
+        /// <param name="stData">Структура данных наблюдения.</param>
+        public void AddData(ClimatData stData)
+        {
+            m_stData.Add(stData);
+            SortList();
+        }
+
+        /// <summary>
+        /// Удаление данных из списка данных проекта.
+        /// </summary>
+        /// <param name="nIndex">Индекс данных в списке.</param>
+        public void DeleteData(int nIndex)
+        {
+            int nNum = FindItem(nIndex);
+            if (nNum != -1)
+                m_stData.RemoveAt(nNum);
+        }
+
+        public ClimatData GetDatabyIndex(int nIndex)
+        {
+            int nPos = FindItem(nIndex);
+            return m_stData[nPos];
+        }
+
+        /// <summary>
+        /// Редактирование данных проекта.
+        /// </summary>
+        /// <param name="stData">Структура данных наблюдения.</param>
+        public void EditData(ClimatData stData)
+        {
+            int nPos = FindItem(stData.Index);
+            m_stData[nPos] = stData;
+            SortList();
+        }
+
+        /// <summary>
+        /// Поиск данных наблюдения в списке.
+        /// </summary>
+        /// <param name="nIndex">Индекс данных.</param>
+        /// <returns>Структура данных наблюдения.</returns>
+        private int FindItem(int nIndex)
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                if (m_stData[i].Index == nIndex)
+                    return i;
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Имя проекта.
+        /// </summary>
+        public String Name
+        {
+            get { return m_strName; }
+        }
+
+        /// <summary>
+        /// Руководитель проекта.
+        /// </summary>
+        public String Manager
+        {
+            get { return m_strManager; }
+            set { m_strManager = value; }
+        }
+
+        /// <summary>
+        /// Место ведения наблюдений.
+        /// </summary>
+        public String Place
+        {
+            get { return m_strPlace; }
+            set { m_strPlace = value; }
+        }
+
+        /// <summary>
+        /// Список участников проекта.
+        /// </summary>
+        public List<String> Members
+        {
+            get { return m_lstMembers; }
+            set { m_lstMembers.Clear(); m_lstMembers = value; }
+        }
+
+        /// <summary>
+        /// Приборы, используемые в проекте.
+        /// </summary>
+        public List<bool> Gadgets
+        {
+            get { return m_lstGadgets; }
+            set { m_lstGadgets.Clear(); m_lstGadgets = value; }
+        }
+
+        /// <summary>
+        /// Проверяет, является ли участник активным участников проекта.
+        /// </summary>
+        /// <param name="strMember">Имя участника.</param>
+        /// <returns>True, если является, False - если нет.</returns>
+        public bool IsMemberActive(String strMember)
+        {
+            for (int i = 0; i < Length; i++)
+            {
+                if (m_stData[i].Duty.Contains(strMember))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Генерирует новый индекс для добавляемой записи в проект.
+        /// </summary>
+        /// <returns>Индекс записи.</returns>
+        public int NewIndex()
+        {
+            int index = 1;
+            bool bFound = false;
+            while (!bFound)
+            {
+                if (Length == 0)
+                    return index;
+                for (int i = 0; i < Length; i++)
+                {
+                    if (index == m_stData[i].Index)
+                    {
+                        index++;
+                        break;
+                    }
+                    if (i == Length - 1)
+                        bFound = true;
+                }
+            }
+            return index;
+        }
+    }
+}
